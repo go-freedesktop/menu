@@ -1,0 +1,11 @@
+<!DOCTYPE Menu PUBLIC "-//freedesktop//DTD Menu 1.0//EN" "http://www.freedesktop.org/standards/menu-spec/menu-1.0.dtd">
+<Menu>
+  <Name>Applications</Name>
+  <Menu>
+    <Name>Network</Name>
+    <Directory>Network.directory</Directory>
+    <Include>
+      <Category>Network</Category>
+    </Include>
+  </Menu>
+</Menu>

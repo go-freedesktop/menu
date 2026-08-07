@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Gnome Utility
+Exec=gutil
+Categories=Utility;
+OnlyShowIn=GNOME;
