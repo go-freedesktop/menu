@@ -1,0 +1,94 @@
+<!DOCTYPE Menu PUBLIC "-//freedesktop//DTD Menu 1.0//EN" "http://www.freedesktop.org/standards/menu-spec/menu-1.0.dtd">
+<Menu>
+  <Name>Applications</Name>
+  <Directory>Missing.directory</Directory>
+  <Directory>Applications.directory</Directory>
+  <DefaultAppDirs/>
+  <DefaultDirectoryDirs/>
+  <DefaultMergeDirs/>
+  <MergeFile>inc.menu</MergeFile>
+
+  <Menu>
+    <Name>Accessories</Name>
+    <Directory>Utility.directory</Directory>
+    <Include>
+      <And>
+        <Category>Utility</Category>
+        <Not>
+          <Category>System</Category>
+        </Not>
+      </And>
+    </Include>
+  </Menu>
+
+  <Menu>
+    <Name>Graphics</Name>
+    <Directory>Graphics.directory</Directory>
+    <Include>
+      <Or>
+        <Category>Graphics</Category>
+        <Filename>org.example.Paint.desktop</Filename>
+      </Or>
+    </Include>
+    <Exclude>
+      <Filename>org.example.Game.desktop</Filename>
+    </Exclude>
+    <Layout>
+      <Filename>org.example.Paint.desktop</Filename>
+      <Filename>org.example.Absent.desktop</Filename>
+      <Merge type="all"/>
+    </Layout>
+  </Menu>
+
+  <Menu>
+    <Name>Games</Name>
+    <Include>
+      <Category>Game</Category>
+    </Include>
+    <Layout>
+    </Layout>
+  </Menu>
+
+  <Menu>
+    <Name>SysTemp</Name>
+    <Include>
+      <Category>System</Category>
+    </Include>
+  </Menu>
+  <Move>
+    <Old>SysTemp</Old>
+    <New>System</New>
+  </Move>
+
+  <Menu>
+    <Name>Dead</Name>
+    <Deleted/>
+    <Include>
+      <All/>
+    </Include>
+  </Menu>
+
+  <Menu>
+    <Name>Empty</Name>
+    <Include>
+      <Filename>org.example.DoesNotExist.desktop</Filename>
+    </Include>
+  </Menu>
+
+  <Menu>
+    <Name>Other</Name>
+    <Directory>Other.directory</Directory>
+    <OnlyUnallocated/>
+    <Include>
+      <All/>
+    </Include>
+  </Menu>
+
+  <DefaultLayout>
+    <Menuname>Accessories</Menuname>
+    <Menuname>NoSuchMenu</Menuname>
+    <Separator/>
+    <Merge type="menus"/>
+    <Merge type="files"/>
+  </DefaultLayout>
+</Menu>
