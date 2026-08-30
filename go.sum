@@ -4,6 +4,8 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/go-freedesktop/desktopentry v0.0.0-20260807001550-282caca5c061 h1:S1t2kADcJX/WwJEJTf2tz1Iejmrd7kC0ga/kcvzaVGs=
 github.com/go-freedesktop/desktopentry v0.0.0-20260807001550-282caca5c061/go.mod h1:iw5+/k0LMY2pvYYD3euvkjG/cUUZa37HEzLiTjaxqQE=
+github.com/go-freedesktop/desktopentry v0.1.0 h1:1cvTNXo63J5sFx8Ch18e1Dzw8BWUY7wr4OzJKCf7Cac=
+github.com/go-freedesktop/desktopentry v0.1.0/go.mod h1:iw5+/k0LMY2pvYYD3euvkjG/cUUZa37HEzLiTjaxqQE=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/rkoesters/xdg v0.0.1 h1:RmfYxghVvIsb4d51u5LtNOcwqY5r3P44u6o86qqvBMA=
