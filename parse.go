@@ -8,6 +8,7 @@ import (
 	"encoding/xml"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -58,12 +59,14 @@ type parser struct {
 // parseMenuFile reads and parses a .menu file at path into a resolved node
 // tree (merges inlined). A missing or malformed file is an error.
 func parseMenuFile(path string, ctx *parseCtx) (*node, error) {
-	f, err := os.Open(path)
+	f, err := os.Open(filepath.FromSlash(path))
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
-	return parseReader(f, ctx, filepath.Dir(path))
+	// Host path in, document path out: everything below resolvePath works in
+	// slashes.
+	return parseReader(f, ctx, filepath.ToSlash(filepath.Dir(path)))
 }
 
 // parseReader parses a menu document from r; baseDir resolves the relative
@@ -238,7 +241,7 @@ func (p *parser) handleMergeFile(n *node, se xml.StartElement, baseDir string) e
 
 // mergeDir merges every *.menu file directly under dir, in sorted order.
 func (p *parser) mergeDir(n *node, dir string) error {
-	entries, err := os.ReadDir(dir)
+	entries, err := os.ReadDir(filepath.FromSlash(dir))
 	if err != nil {
 		return nil // a missing merge directory is ignored, per spec
 	}
@@ -250,7 +253,7 @@ func (p *parser) mergeDir(n *node, dir string) error {
 	}
 	sort.Strings(names)
 	for _, name := range names {
-		if err := p.mergePath(n, filepath.Join(dir, name)); err != nil {
+		if err := p.mergePath(n, path.Join(dir, name)); err != nil {
 			return err
 		}
 	}
@@ -261,7 +264,7 @@ func (p *parser) mergeDir(n *node, dir string) error {
 // into n. A missing file is ignored; a malformed one is an error; a file
 // already merged on this path (cycle) is skipped.
 func (p *parser) mergePath(n *node, path string) error {
-	abs, _ := filepath.Abs(path)
+	abs := visitKey(path)
 	if p.ctx.visited[abs] {
 		return nil
 	}
@@ -438,15 +441,55 @@ func (p *parser) layoutItem(lay *layout, se xml.StartElement) error {
 }
 
 // resolvePath joins a possibly-relative spec path onto baseDir.
+// ⛔ SLASHES, not filepath. The paths inside a .menu document are defined by
+// the XDG menu specification, which is written in slashes; they are DOCUMENT
+// paths, not host paths. Resolving them with path/filepath made
+// <AppDir>rel/apps</AppDir> come out as `\base\rel\apps` on Windows -- a
+// value no .menu file, no test and no other implementation would ever write.
+//
+// The host only enters at the three places that touch the disk, and each
+// converts with filepath.FromSlash there. Windows accepts '/' in most calls
+// anyway; the conversion is so the value handed to the OS is the OS's, rather
+// than relying on that.
 func resolvePath(baseDir, p string) string {
-	if filepath.IsAbs(p) {
-		return filepath.Clean(p)
+	// ⛔ ONE question, not two. A document path is absolute if the
+	// specification says so (a leading '/') or if the host says so -- a .menu
+	// file written on Windows, or a caller that built a path from a temporary
+	// directory, can carry `C:\x`. path.IsAbs does not recognise that shape,
+	// so the first version of this joined it onto the base and produced
+	// `/base/C:\Users\…`.
+	//
+	// Written as two `if`s it cost the 100% gate: on Unix the filepath arm is
+	// unreachable, because there filepath.IsAbs and path.IsAbs ask the same
+	// thing. One statement, reached on every platform, and the Windows lane is
+	// what exercises the second half of it.
+	//
+	// ToSlash BEFORE Clean: path.Clean does not know backslashes, so cleaning
+	// first would leave `C:\x\..\y` untouched.
+	if path.IsAbs(p) || filepath.IsAbs(p) {
+		return path.Clean(filepath.ToSlash(p))
 	}
-	return filepath.Join(baseDir, p)
+	return path.Join(baseDir, p)
+}
+
+// visitKey is the ONE spelling of a merged file used as the cycle key.
+//
+// It exists because there were two. mergePath keyed on filepath.Abs while a
+// caller seeded the same set with its own filepath.Abs, and the day mergePath
+// started normalising to slashes the two stopped matching -- silently, because
+// a cycle guard that never fires looks exactly like a file that was never
+// merged twice. One function, called from both sides.
+func visitKey(p string) string {
+	// The error is dropped, as it was before this function existed:
+	// filepath.Abs only fails when the process has no working directory, and a
+	// guard for that is an arm no test can reach -- it took the 100% gate to
+	// 99.8% when it was written out.
+	abs, _ := filepath.Abs(filepath.FromSlash(p))
+	return filepath.ToSlash(abs)
 }
 
 // fileExists reports whether path names an existing regular file.
 func fileExists(path string) bool {
-	info, err := os.Stat(path)
+	info, err := os.Stat(filepath.FromSlash(path))
 	return err == nil && !info.IsDir()
 }

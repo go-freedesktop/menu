@@ -97,7 +97,10 @@ func TestHandleStartAllElements(t *testing.T) {
 	</Menu>`
 	n := parse(t, doc, newCtx(), "/base")
 
-	if len(n.appDirs) != 2 || n.appDirs[0] != abs || n.appDirs[1] != "/base/rel/apps" {
+	// A host-absolute path in the document comes back normalised to slashes,
+	// because everything below resolvePath is a document path.
+	wantAbs := filepath.ToSlash(abs)
+	if len(n.appDirs) != 2 || n.appDirs[0] != wantAbs || n.appDirs[1] != "/base/rel/apps" {
 		t.Errorf("appDirs = %v", n.appDirs)
 	}
 	if len(n.dirDirs) != 1 || n.dirDirs[0] != "/base/rel/dirs" {
@@ -165,7 +168,9 @@ func TestMergePathBehaviors(t *testing.T) {
 
 	// Cycle guard: the same file merged twice only contributes once.
 	ctx := newCtx()
-	ctx.visited[mustAbs(t, good)] = true
+	// The same function the library keys on; two spellings of one path is
+	// exactly the bug this guard is for.
+	ctx.visited[visitKey(good)] = true
 	n := parse(t, `<Menu><Name>R</Name><MergeFile>good.menu</MergeFile></Menu>`, ctx, dir)
 	if childByName(n, "Added") != nil {
 		t.Error("visited file should have been skipped")
@@ -230,11 +235,30 @@ func writeFile(t *testing.T, path, content string) {
 	}
 }
 
-func mustAbs(t *testing.T, p string) string {
-	t.Helper()
-	a, err := filepath.Abs(p)
-	if err != nil {
-		t.Fatal(err)
+// ⛔ TestResolvePathIsSlashOnEveryHost pins the RULE, not the platform. The
+// paths inside a .menu document belong to the XDG menu specification, which is
+// written in slashes; resolving them with path/filepath turned
+// <AppDir>rel/apps</AppDir> into `\base\rel\apps` on the Windows lane and
+// nowhere else, so the only test that could see it was one that ran there.
+//
+// This one sees it everywhere: a backslash in a resolved document path is
+// wrong on Unix too, it just never happens there by accident.
+func TestResolvePathIsSlashOnEveryHost(t *testing.T) {
+	for _, tc := range []struct{ base, in, want string }{
+		{"/base", "rel", "/base/rel"},
+		{"/base", "/abs/path", "/abs/path"},
+		{"/base", "a/b/../c", "/base/a/c"},
+		{"/base/", "rel", "/base/rel"},
+		// A host path that has already been normalised at the boundary, which
+		// is what parseMenuFile hands in on Windows.
+		{"C:/menus", "rel", "C:/menus/rel"},
+	} {
+		got := resolvePath(tc.base, tc.in)
+		if got != tc.want {
+			t.Errorf("resolvePath(%q, %q) = %q, want %q", tc.base, tc.in, got, tc.want)
+		}
+		if strings.ContainsRune(got, '\\') {
+			t.Errorf("resolvePath(%q, %q) = %q, which carries a backslash", tc.base, tc.in, got)
+		}
 	}
-	return a
 }
