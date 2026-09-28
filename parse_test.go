@@ -97,7 +97,10 @@ func TestHandleStartAllElements(t *testing.T) {
 	</Menu>`
 	n := parse(t, doc, newCtx(), "/base")
 
-	if len(n.appDirs) != 2 || n.appDirs[0] != abs || n.appDirs[1] != "/base/rel/apps" {
+	// A host-absolute path in the document comes back normalised to slashes,
+	// because everything below resolvePath is a document path.
+	wantAbs := filepath.ToSlash(abs)
+	if len(n.appDirs) != 2 || n.appDirs[0] != wantAbs || n.appDirs[1] != "/base/rel/apps" {
 		t.Errorf("appDirs = %v", n.appDirs)
 	}
 	if len(n.dirDirs) != 1 || n.dirDirs[0] != "/base/rel/dirs" {
@@ -165,7 +168,9 @@ func TestMergePathBehaviors(t *testing.T) {
 
 	// Cycle guard: the same file merged twice only contributes once.
 	ctx := newCtx()
-	ctx.visited[mustAbs(t, good)] = true
+	// The same function the library keys on; two spellings of one path is
+	// exactly the bug this guard is for.
+	ctx.visited[visitKey(good)] = true
 	n := parse(t, `<Menu><Name>R</Name><MergeFile>good.menu</MergeFile></Menu>`, ctx, dir)
 	if childByName(n, "Added") != nil {
 		t.Error("visited file should have been skipped")
@@ -228,15 +233,6 @@ func writeFile(t *testing.T, path, content string) {
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
-}
-
-func mustAbs(t *testing.T, p string) string {
-	t.Helper()
-	a, err := filepath.Abs(p)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return a
 }
 
 // ⛔ TestResolvePathIsSlashOnEveryHost pins the RULE, not the platform. The
