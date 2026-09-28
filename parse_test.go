@@ -238,3 +238,31 @@ func mustAbs(t *testing.T, p string) string {
 	}
 	return a
 }
+
+// ⛔ TestResolvePathIsSlashOnEveryHost pins the RULE, not the platform. The
+// paths inside a .menu document belong to the XDG menu specification, which is
+// written in slashes; resolving them with path/filepath turned
+// <AppDir>rel/apps</AppDir> into `\base\rel\apps` on the Windows lane and
+// nowhere else, so the only test that could see it was one that ran there.
+//
+// This one sees it everywhere: a backslash in a resolved document path is
+// wrong on Unix too, it just never happens there by accident.
+func TestResolvePathIsSlashOnEveryHost(t *testing.T) {
+	for _, tc := range []struct{ base, in, want string }{
+		{"/base", "rel", "/base/rel"},
+		{"/base", "/abs/path", "/abs/path"},
+		{"/base", "a/b/../c", "/base/a/c"},
+		{"/base/", "rel", "/base/rel"},
+		// A host path that has already been normalised at the boundary, which
+		// is what parseMenuFile hands in on Windows.
+		{"C:/menus", "rel", "C:/menus/rel"},
+	} {
+		got := resolvePath(tc.base, tc.in)
+		if got != tc.want {
+			t.Errorf("resolvePath(%q, %q) = %q, want %q", tc.base, tc.in, got, tc.want)
+		}
+		if strings.ContainsRune(got, '\\') {
+			t.Errorf("resolvePath(%q, %q) = %q, which carries a backslash", tc.base, tc.in, got)
+		}
+	}
+}

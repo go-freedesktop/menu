@@ -8,6 +8,7 @@ import (
 	"encoding/xml"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -58,12 +59,14 @@ type parser struct {
 // parseMenuFile reads and parses a .menu file at path into a resolved node
 // tree (merges inlined). A missing or malformed file is an error.
 func parseMenuFile(path string, ctx *parseCtx) (*node, error) {
-	f, err := os.Open(path)
+	f, err := os.Open(filepath.FromSlash(path))
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
-	return parseReader(f, ctx, filepath.Dir(path))
+	// Host path in, document path out: everything below resolvePath works in
+	// slashes.
+	return parseReader(f, ctx, filepath.ToSlash(filepath.Dir(path)))
 }
 
 // parseReader parses a menu document from r; baseDir resolves the relative
@@ -238,7 +241,7 @@ func (p *parser) handleMergeFile(n *node, se xml.StartElement, baseDir string) e
 
 // mergeDir merges every *.menu file directly under dir, in sorted order.
 func (p *parser) mergeDir(n *node, dir string) error {
-	entries, err := os.ReadDir(dir)
+	entries, err := os.ReadDir(filepath.FromSlash(dir))
 	if err != nil {
 		return nil // a missing merge directory is ignored, per spec
 	}
@@ -250,7 +253,7 @@ func (p *parser) mergeDir(n *node, dir string) error {
 	}
 	sort.Strings(names)
 	for _, name := range names {
-		if err := p.mergePath(n, filepath.Join(dir, name)); err != nil {
+		if err := p.mergePath(n, path.Join(dir, name)); err != nil {
 			return err
 		}
 	}
@@ -261,7 +264,10 @@ func (p *parser) mergeDir(n *node, dir string) error {
 // into n. A missing file is ignored; a malformed one is an error; a file
 // already merged on this path (cycle) is skipped.
 func (p *parser) mergePath(n *node, path string) error {
-	abs, _ := filepath.Abs(path)
+	// ToSlash so the cycle key is the same string on every platform; two
+	// spellings of one file would merge it twice.
+	absHost, _ := filepath.Abs(filepath.FromSlash(path))
+	abs := filepath.ToSlash(absHost)
 	if p.ctx.visited[abs] {
 		return nil
 	}
@@ -438,15 +444,25 @@ func (p *parser) layoutItem(lay *layout, se xml.StartElement) error {
 }
 
 // resolvePath joins a possibly-relative spec path onto baseDir.
+// ⛔ SLASHES, not filepath. The paths inside a .menu document are defined by
+// the XDG menu specification, which is written in slashes; they are DOCUMENT
+// paths, not host paths. Resolving them with path/filepath made
+// <AppDir>rel/apps</AppDir> come out as `\base\rel\apps` on Windows -- a
+// value no .menu file, no test and no other implementation would ever write.
+//
+// The host only enters at the three places that touch the disk, and each
+// converts with filepath.FromSlash there. Windows accepts '/' in most calls
+// anyway; the conversion is so the value handed to the OS is the OS's, rather
+// than relying on that.
 func resolvePath(baseDir, p string) string {
-	if filepath.IsAbs(p) {
-		return filepath.Clean(p)
+	if path.IsAbs(p) {
+		return path.Clean(p)
 	}
-	return filepath.Join(baseDir, p)
+	return path.Join(baseDir, p)
 }
 
 // fileExists reports whether path names an existing regular file.
 func fileExists(path string) bool {
-	info, err := os.Stat(path)
+	info, err := os.Stat(filepath.FromSlash(path))
 	return err == nil && !info.IsDir()
 }
